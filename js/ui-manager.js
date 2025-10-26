@@ -222,7 +222,7 @@ export class UIManager {
                             <span class="detail-value" data-field="price">$${formatNumber(reward.tokenPrice)}</span>
                         </div>
                         <div class="detail-item">
-                            <span class="detail-label">Distribution Chain</span>
+                            <span class="detail-label">Chain</span>
                             <span class="detail-value" data-field="distributionChain">${getChainName(reward.distributionChainId)}</span>
                         </div>
                     </div>
