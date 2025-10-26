@@ -99,12 +99,6 @@ export class UIManager {
                             <span class="detail-value" data-field="netApy">${formatNumber(vault.netApy * 100)}%</span>
                         </div>
                         ` : ''}
-                        ${vault.assetPriceUsd !== undefined ? `
-                        <div class="detail-item">
-                            <span class="detail-label">Asset Price</span>
-                            <span class="detail-value" data-field="price">$${formatNumber(vault.assetPriceUsd)}</span>
-                        </div>
-                        ` : ''}
                     </div>
                 </div>
             `;
@@ -149,12 +143,6 @@ export class UIManager {
             if (vault.netApy !== undefined) {
                 const netApyEl = vaultEl.querySelector('[data-field="netApy"]');
                 if (netApyEl) netApyEl.textContent = `${formatNumber(vault.netApy * 100)}%`;
-            }
-
-            // Update Asset Price
-            if (vault.assetPriceUsd !== undefined) {
-                const priceEl = vaultEl.querySelector('[data-field="price"]');
-                if (priceEl) priceEl.textContent = `$${formatNumber(vault.assetPriceUsd)}`;
             }
         });
     }

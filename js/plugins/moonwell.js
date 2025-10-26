@@ -41,6 +41,39 @@ export class MoonwellVaultPlugin extends VaultPlugin {
                 return [];
             }
 
+            // Fetch full market data to get APY information
+            // Create a map of markets by chainId and token address
+            const marketMap = new Map();
+            const fetchedChains = new Set();
+
+            // Map chainId to network name for SDK
+            const chainIdToNetwork = {
+                8453: 'base',
+                10: 'optimism',
+                1284: 'moonbeam',
+                1285: 'moonriver'
+            };
+
+            for (const position of userPositions) {
+                const chainId = position.chainId;
+                const network = chainIdToNetwork[chainId];
+
+                if (network && !fetchedChains.has(chainId)) {
+                    fetchedChains.add(chainId);
+                    try {
+                        const markets = await this.client.getMarkets({ networkId: network });
+                        if (markets && Array.isArray(markets)) {
+                            for (const market of markets) {
+                                const key = `${chainId}-${market.marketToken?.address?.toLowerCase()}`;
+                                marketMap.set(key, market);
+                            }
+                        }
+                    } catch (error) {
+                        console.warn(`[Moonwell] Error fetching markets for chain ${chainId}:`, error);
+                    }
+                }
+            }
+
             // Transform to our standard format
             for (const position of userPositions) {
                 // SDK returns Amount objects, need to access the value
@@ -51,21 +84,40 @@ export class MoonwellVaultPlugin extends VaultPlugin {
                     const supplyBalanceUsd = suppliedUsd ? parseFloat(suppliedUsd) : 0;
                     const supplyBalance = parseFloat(suppliedAmount);
 
+                    // Get full market data with APY information
+                    const chainId = position.chainId;
+                    const marketTokenAddress = position.market?.address?.toLowerCase();
+                    const marketKey = `${chainId}-${marketTokenAddress}`;
+                    const fullMarket = marketMap.get(marketKey);
+
+                    console.log(`[Moonwell] Matching market:`, {
+                        chainId,
+                        marketTokenAddress,
+                        marketKey,
+                        foundFullMarket: !!fullMarket,
+                        fullMarketAPY: fullMarket ? {
+                            baseSupplyApy: fullMarket.baseSupplyApy,
+                            totalSupplyApr: fullMarket.totalSupplyApr
+                        } : 'NOT FOUND',
+                        availableKeys: Array.from(marketMap.keys()).slice(0, 5)
+                    });
+
                     const transformed = {
                         source: this.name,
                         chainId: position.chainId || this.getChainId(position.network),
                         chainName: this.getChainNameFromNetwork(position.network) || getChainName(position.chainId),
                         userAddress: address,
-                        vaultAddress: position.market?.mTokenAddress || position.market?.address,
+                        vaultAddress: position.market?.address,
                         vaultName: `${position.market?.underlyingSymbol || position.market?.symbol} Market`,
-                        vaultSymbol: position.market?.mTokenSymbol || position.market?.symbol,
+                        vaultSymbol: position.market?.symbol,
                         assetSymbol: position.market?.underlyingSymbol || position.market?.symbol,
                         assetDecimals: position.market?.underlyingDecimals || 18,
-                        assetPriceUsd: parseFloat(position.market?.underlyingPrice?.valueUsd || position.market?.underlyingPriceUsd || 0),
+                        assetPriceUsd: parseFloat(position.market?.underlyingPrice?.valueUsd || position.market?.underlyingPrice || 0),
                         balanceAssets: supplyBalance,
                         balanceUsd: supplyBalanceUsd,
-                        apy: parseFloat(position.market?.supplyApy || position.market?.apy || 0),
-                        netApy: parseFloat(position.market?.supplyApy || position.market?.apy || 0)
+                        // SDK returns APY as percentage (e.g., 5.32 for 5.32%), convert to decimal (0.0532)
+                        apy: fullMarket ? parseFloat(fullMarket.baseSupplyApy || 0) / 100 : 0,
+                        netApy: fullMarket ? parseFloat(fullMarket.totalSupplyApr || fullMarket.baseSupplyApy || 0) / 100 : 0
                     };
                     positions.push(transformed);
                 }
