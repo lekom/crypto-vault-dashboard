@@ -1,9 +1,8 @@
-// Morpho Vault Dashboard Application
+// Crypto Vault Dashboard Application
+// Plugin-based architecture for multiple data sources
 
-const MORPHO_API_URL = 'https://api.morpho.org/graphql';
-const MERKL_API_URL = 'https://api.merkl.xyz';
 const POLL_INTERVAL = 30000; // 30 seconds
-const STORAGE_KEY = 'morpho_dashboard_wallets';
+const STORAGE_KEY = 'crypto_vault_dashboard_wallets';
 
 // Supported chain IDs
 const CHAIN_IDS = {
@@ -17,6 +16,65 @@ const SUPPORTED_CHAINS = [
     CHAIN_IDS.BASE,
     CHAIN_IDS.ARBITRUM
 ];
+
+// =============================================================================
+// PLUGIN ARCHITECTURE
+// =============================================================================
+
+/**
+ * Base class for vault data source plugins
+ */
+class VaultPlugin {
+    constructor(name, type) {
+        this.name = name;
+        this.type = type; // 'vault' or 'rewards'
+    }
+
+    /**
+     * Fetch data for a single wallet address
+     * @param {string} address - Wallet address
+     * @returns {Promise<Array>} Array of vault/reward items
+     */
+    async fetchData(address) {
+        throw new Error('fetchData must be implemented by plugin');
+    }
+
+    /**
+     * Get supported chain IDs for this plugin
+     * @returns {Array<number>} Array of chain IDs
+     */
+    getSupportedChains() {
+        return SUPPORTED_CHAINS;
+    }
+}
+
+/**
+ * Plugin registry to manage all data source plugins
+ */
+class PluginRegistry {
+    constructor() {
+        this.plugins = [];
+    }
+
+    register(plugin) {
+        this.plugins.push(plugin);
+    }
+
+    getVaultPlugins() {
+        return this.plugins.filter(p => p.type === 'vault');
+    }
+
+    getRewardPlugins() {
+        return this.plugins.filter(p => p.type === 'rewards');
+    }
+
+    getAllPlugins() {
+        return this.plugins;
+    }
+}
+
+// Create global plugin registry
+const pluginRegistry = new PluginRegistry();
 
 // State management
 let wallets = [];
@@ -55,6 +113,298 @@ document.addEventListener('DOMContentLoaded', () => {
         startPolling();
     }
 });
+
+// =============================================================================
+// PLUGIN IMPLEMENTATIONS
+// =============================================================================
+
+/**
+ * Morpho Vault Plugin
+ * Fetches vault positions from Morpho across multiple chains
+ */
+class MorphoVaultPlugin extends VaultPlugin {
+    constructor() {
+        super('Morpho', 'vault');
+        this.apiUrl = 'https://api.morpho.org/graphql';
+    }
+
+    async fetchData(address) {
+        const promises = this.getSupportedChains().map(chainId =>
+            this.fetchUserVaults(address, chainId)
+        );
+        const results = await Promise.all(promises);
+        return results.flat();
+    }
+
+    async fetchUserVaults(userAddress, chainId) {
+        const positionsQuery = `
+            query GetUserPositions($chainId: Int!, $userAddress: String!) {
+                vaultPositions(
+                    where: {
+                        chainId_in: [$chainId]
+                        shares_gte: 0
+                        userAddress_in: [$userAddress]
+                    }
+                ) {
+                    items {
+                        id
+                        assets
+                        shares
+                        vault {
+                            id
+                            address
+                        }
+                    }
+                }
+            }
+        `;
+
+        try {
+            const positionsResponse = await fetch(this.apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    query: positionsQuery,
+                    variables: { chainId, userAddress }
+                })
+            });
+
+            const positionsData = await positionsResponse.json();
+
+            if (positionsData.errors) {
+                console.warn(`GraphQL errors for ${getChainName(chainId)}:`, positionsData.errors);
+                return [];
+            }
+
+            const positions = positionsData.data?.vaultPositions?.items || [];
+
+            if (positions.length === 0) {
+                return [];
+            }
+
+            const vaultDetailsPromises = positions.map(position =>
+                this.fetchVaultDetails(position.vault.address, chainId)
+            );
+            const vaultDetails = await Promise.all(vaultDetailsPromises);
+
+            return positions
+                .map((position, index) => {
+                    const details = vaultDetails[index];
+                    if (!details) return null;
+
+                    const decimals = details.assetDecimals;
+                    const rawAssets = parseFloat(position.assets);
+                    const adjustedAssets = rawAssets / Math.pow(10, decimals);
+
+                    return {
+                        source: this.name,
+                        chainId,
+                        chainName: getChainName(chainId),
+                        userAddress,
+                        vaultAddress: position.vault.address,
+                        vaultName: details.name,
+                        vaultSymbol: details.symbol,
+                        assetSymbol: details.assetSymbol,
+                        assetAddress: details.assetAddress,
+                        assetDecimals: decimals,
+                        assetPriceUsd: details.assetPriceUsd,
+                        balanceShares: position.shares,
+                        balanceAssets: adjustedAssets,
+                        balanceUsd: details.totalAssetsUsd ? (adjustedAssets * details.assetPriceUsd) : 0,
+                        apy: details.apy,
+                        netApy: details.netApy
+                    };
+                })
+                .filter(item => item !== null && item.balanceAssets > 0);
+        } catch (error) {
+            console.error(`Error fetching Morpho vaults for ${userAddress} on ${getChainName(chainId)}:`, error);
+            return [];
+        }
+    }
+
+    async fetchVaultDetails(vaultAddress, chainId) {
+        const vaultQuery = `
+            query GetVaultDetails($vaultAddress: String!, $chainId: Int!) {
+                vaultByAddress(address: $vaultAddress, chainId: $chainId) {
+                    address
+                    name
+                    symbol
+                    state {
+                        totalAssets
+                        totalAssetsUsd
+                        apy
+                        netApy
+                    }
+                    asset {
+                        address
+                        symbol
+                        decimals
+                        priceUsd
+                    }
+                }
+            }
+        `;
+
+        try {
+            const response = await fetch(this.apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    query: vaultQuery,
+                    variables: { vaultAddress, chainId }
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.errors) {
+                console.warn(`Could not fetch details for vault ${vaultAddress.slice(0, 8)}...`);
+                return null;
+            }
+
+            const vault = data.data?.vaultByAddress;
+            if (!vault) return null;
+
+            return {
+                name: vault.name || vault.symbol || 'Unknown Vault',
+                symbol: vault.symbol || 'VAULT',
+                assetSymbol: vault.asset?.symbol || 'TOKEN',
+                assetAddress: vault.asset?.address || '',
+                assetDecimals: parseInt(vault.asset?.decimals || 18),
+                assetPriceUsd: parseFloat(vault.asset?.priceUsd || 0),
+                totalAssetsUsd: parseFloat(vault.state?.totalAssetsUsd || 0),
+                apy: parseFloat(vault.state?.apy || 0),
+                netApy: parseFloat(vault.state?.netApy || 0)
+            };
+        } catch (error) {
+            console.warn(`Error fetching vault details for ${vaultAddress.slice(0, 8)}...`);
+            return null;
+        }
+    }
+}
+
+/**
+ * Merkl Rewards Plugin
+ * Fetches reward data from Merkl API
+ */
+class MerklRewardsPlugin extends VaultPlugin {
+    constructor() {
+        super('Merkl', 'rewards');
+        this.apiUrl = 'https://api.merkl.xyz';
+    }
+
+    async fetchData(address) {
+        const promises = this.getSupportedChains().map(chainId =>
+            this.fetchRewardsForChain(address, chainId)
+        );
+        const results = await Promise.all(promises);
+        return results.flat();
+    }
+
+    async fetchRewardsForChain(userAddress, chainId) {
+        try {
+            const response = await fetch(
+                `${this.apiUrl}/v4/users/${userAddress}/rewards?chainId=${chainId}&breakdownPage=0`,
+                {
+                    method: 'GET',
+                    headers: { 'Accept': '*/*' }
+                }
+            );
+
+            if (!response.ok) {
+                return [];
+            }
+
+            const data = await response.json();
+
+            if (Array.isArray(data) && data.length > 0) {
+                const allRewards = [];
+
+                for (const chainData of data) {
+                    if (chainData.rewards && Array.isArray(chainData.rewards)) {
+                        for (const reward of chainData.rewards) {
+                            allRewards.push({
+                                source: this.name,
+                                chainId: chainId,
+                                chainName: getChainName(chainId),
+                                userAddress: userAddress,
+                                distributionChainId: reward.distributionChainId,
+                                amount: reward.amount,
+                                claimed: reward.claimed || "0",
+                                pending: reward.pending || "0",
+                                recipient: reward.recipient,
+                                root: reward.root,
+                                tokenSymbol: reward.token?.symbol || 'TOKEN',
+                                tokenDecimals: reward.token?.decimals || 18,
+                                tokenAddress: reward.token?.address || '',
+                                tokenPrice: reward.token?.price || 0
+                            });
+                        }
+                    }
+                }
+
+                return allRewards;
+            }
+
+            return [];
+        } catch (error) {
+            console.warn(`Could not fetch Merkl rewards for chain ${chainId}`);
+            return [];
+        }
+    }
+}
+
+/**
+ * Hyperliquid HLP Vault Plugin (Placeholder)
+ * TODO: Implement actual API integration
+ */
+class HyperliquidVaultPlugin extends VaultPlugin {
+    constructor() {
+        super('Hyperliquid HLP', 'vault');
+    }
+
+    async fetchData(address) {
+        // Placeholder - returns empty array for now
+        console.log(`Hyperliquid HLP plugin called for ${address} (not yet implemented)`);
+        return [];
+    }
+
+    getSupportedChains() {
+        // Hyperliquid is its own chain, but we'll handle it separately
+        return [];
+    }
+}
+
+/**
+ * Moonwell Vault Plugin (Placeholder)
+ * TODO: Implement actual API integration
+ */
+class MoonwellVaultPlugin extends VaultPlugin {
+    constructor() {
+        super('Moonwell', 'vault');
+    }
+
+    async fetchData(address) {
+        // Placeholder - returns empty array for now
+        console.log(`Moonwell plugin called for ${address} (not yet implemented)`);
+        return [];
+    }
+
+    getSupportedChains() {
+        // Moonwell is on Base and Optimism
+        return [CHAIN_IDS.BASE];
+    }
+}
+
+// Register all plugins
+pluginRegistry.register(new MorphoVaultPlugin());
+pluginRegistry.register(new MerklRewardsPlugin());
+pluginRegistry.register(new HyperliquidVaultPlugin());
+pluginRegistry.register(new MoonwellVaultPlugin());
+
+// =============================================================================
+// EVENT LISTENERS
+// =============================================================================
 
 // Setup event listeners
 function setupEventListeners() {
@@ -159,31 +509,42 @@ function formatAddress(address) {
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
-// API calls
+// =============================================================================
+// DATA FETCHING
+// =============================================================================
+
+// API calls using plugin system
 async function fetchAllData(showLoadingOverlay = true) {
     if (showLoadingOverlay) {
         showLoading(true);
     }
 
     try {
-        // Fetch vault positions for all wallets across all supported chains
+        // Fetch vault data from all vault plugins
+        const vaultPlugins = pluginRegistry.getVaultPlugins();
         const vaultPromises = [];
-        for (const address of wallets) {
-            for (const chainId of SUPPORTED_CHAINS) {
-                vaultPromises.push(fetchUserVaults(address, chainId));
+
+        for (const wallet of wallets) {
+            for (const plugin of vaultPlugins) {
+                vaultPromises.push(plugin.fetchData(wallet));
             }
         }
-        const vaultResults = await Promise.all(vaultPromises);
 
-        // Flatten and combine results
+        const vaultResults = await Promise.all(vaultPromises);
         vaultsData = vaultResults.flat();
 
-        // Fetch Merkl rewards for all wallets
-        const rewardsPromises = wallets.map(address => fetchMerklRewards(address));
-        const rewardsResults = await Promise.all(rewardsPromises);
+        // Fetch rewards data from all reward plugins
+        const rewardPlugins = pluginRegistry.getRewardPlugins();
+        const rewardPromises = [];
 
-        // Flatten and combine rewards
-        rewardsData = rewardsResults.flat();
+        for (const wallet of wallets) {
+            for (const plugin of rewardPlugins) {
+                rewardPromises.push(plugin.fetchData(wallet));
+            }
+        }
+
+        const rewardResults = await Promise.all(rewardPromises);
+        rewardsData = rewardResults.flat();
 
         updateVaultsUI();
     } catch (error) {
@@ -216,234 +577,9 @@ function updateVaultsUI() {
     }, 300);
 }
 
-async function fetchUserVaults(userAddress, chainId) {
-    // Step 1: Get user's vault positions using the documented vaultPositions query
-    const positionsQuery = `
-        query GetUserPositions($chainId: Int!, $userAddress: String!) {
-            vaultPositions(
-                where: {
-                    chainId_in: [$chainId]
-                    shares_gte: 0
-                    userAddress_in: [$userAddress]
-                }
-            ) {
-                items {
-                    id
-                    assets
-                    shares
-                    vault {
-                        id
-                        address
-                    }
-                }
-            }
-        }
-    `;
-
-    try {
-        const positionsResponse = await fetch(MORPHO_API_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                query: positionsQuery,
-                variables: {
-                    chainId,
-                    userAddress
-                }
-            })
-        });
-
-        const positionsData = await positionsResponse.json();
-
-        if (positionsData.errors) {
-            console.warn(`GraphQL errors for ${getChainName(chainId)}:`, positionsData.errors);
-            return [];
-        }
-
-        const positions = positionsData.data?.vaultPositions?.items || [];
-
-        if (positions.length === 0) {
-            return [];
-        }
-
-        // Step 2: Fetch detailed vault data for each vault
-        const vaultDetailsPromises = positions.map(position =>
-            fetchVaultDetails(position.vault.address, chainId)
-        );
-        const vaultDetails = await Promise.all(vaultDetailsPromises);
-
-        // Step 3: Merge positions with vault details
-        return positions
-            .map((position, index) => {
-                const details = vaultDetails[index];
-                if (!details) return null;
-
-                const decimals = details.assetDecimals;
-                const rawAssets = parseFloat(position.assets);
-                const adjustedAssets = rawAssets / Math.pow(10, decimals);
-
-                return {
-                    chainId,
-                    chainName: getChainName(chainId),
-                    userAddress,
-                    vaultAddress: position.vault.address,
-                    vaultName: details.name,
-                    vaultSymbol: details.symbol,
-                    assetSymbol: details.assetSymbol,
-                    assetAddress: details.assetAddress,
-                    assetDecimals: decimals,
-                    assetPriceUsd: details.assetPriceUsd,
-                    balanceShares: position.shares,
-                    balanceAssets: adjustedAssets,
-                    balanceUsd: details.totalAssetsUsd ? (adjustedAssets * details.assetPriceUsd) : 0,
-                    apy: details.apy,
-                    netApy: details.netApy
-                };
-            })
-            .filter(item => item !== null && item.balanceAssets > 0);
-    } catch (error) {
-        console.error(`Error fetching vaults for ${userAddress} on ${getChainName(chainId)}:`, error);
-        return [];
-    }
-}
-
-async function fetchVaultDetails(vaultAddress, chainId) {
-    const vaultQuery = `
-        query GetVaultDetails($vaultAddress: String!, $chainId: Int!) {
-            vaultByAddress(address: $vaultAddress, chainId: $chainId) {
-                address
-                name
-                symbol
-                state {
-                    totalAssets
-                    totalAssetsUsd
-                    apy
-                    netApy
-                }
-                asset {
-                    address
-                    symbol
-                    decimals
-                    priceUsd
-                }
-            }
-        }
-    `;
-
-    try {
-        const response = await fetch(MORPHO_API_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                query: vaultQuery,
-                variables: {
-                    vaultAddress,
-                    chainId
-                }
-            })
-        });
-
-        const data = await response.json();
-
-        if (data.errors) {
-            console.warn(`Could not fetch details for vault ${vaultAddress.slice(0, 8)}...`);
-            return null;
-        }
-
-        const vault = data.data?.vaultByAddress;
-        if (!vault) return null;
-
-        return {
-            name: vault.name || vault.symbol || 'Unknown Vault',
-            symbol: vault.symbol || 'VAULT',
-            assetSymbol: vault.asset?.symbol || 'TOKEN',
-            assetAddress: vault.asset?.address || '',
-            assetDecimals: parseInt(vault.asset?.decimals || 18),
-            assetPriceUsd: parseFloat(vault.asset?.priceUsd || 0),
-            totalAssetsUsd: parseFloat(vault.state?.totalAssetsUsd || 0),
-            apy: parseFloat(vault.state?.apy || 0),
-            netApy: parseFloat(vault.state?.netApy || 0)
-        };
-    } catch (error) {
-        console.warn(`Error fetching vault details for ${vaultAddress.slice(0, 8)}...`);
-        return null;
-    }
-}
-
-// Fetch rewards from Merkl API for all supported chains
-async function fetchMerklRewards(userAddress) {
-    try {
-        // Fetch rewards for each chain
-        const rewardsPromises = SUPPORTED_CHAINS.map(chainId =>
-            fetchMerklRewardsForChain(userAddress, chainId)
-        );
-        const rewardsResults = await Promise.all(rewardsPromises);
-
-        // Flatten and combine all rewards
-        return rewardsResults.flat();
-    } catch (error) {
-        console.warn(`Error fetching Merkl rewards for ${userAddress.slice(0, 8)}...`);
-        return [];
-    }
-}
-
-async function fetchMerklRewardsForChain(userAddress, chainId) {
-    try {
-        const response = await fetch(
-            `${MERKL_API_URL}/v4/users/${userAddress}/rewards?chainId=${chainId}&breakdownPage=0`,
-            {
-                method: 'GET',
-                headers: {
-                    'Accept': '*/*',
-                }
-            }
-        );
-
-        if (!response.ok) {
-            return [];
-        }
-
-        const data = await response.json();
-
-        // Response is an array where each element has chain and rewards
-        if (Array.isArray(data) && data.length > 0) {
-            const allRewards = [];
-
-            for (const chainData of data) {
-                if (chainData.rewards && Array.isArray(chainData.rewards)) {
-                    for (const reward of chainData.rewards) {
-                        allRewards.push({
-                            chainId: chainId,
-                            chainName: getChainName(chainId),
-                            userAddress: userAddress,
-                            distributionChainId: reward.distributionChainId,
-                            amount: reward.amount,
-                            claimed: reward.claimed || "0",
-                            pending: reward.pending || "0",
-                            recipient: reward.recipient,
-                            root: reward.root,
-                            tokenSymbol: reward.token?.symbol || 'TOKEN',
-                            tokenDecimals: reward.token?.decimals || 18,
-                            tokenAddress: reward.token?.address || '',
-                            tokenPrice: reward.token?.price || 0
-                        });
-                    }
-                }
-            }
-
-            return allRewards;
-        }
-
-        return [];
-    } catch (error) {
-        console.warn(`Could not fetch Merkl rewards for chain ${chainId}`);
-        return [];
-    }
-}
+// =============================================================================
+// RENDERING
+// =============================================================================
 
 // Render vaults
 function renderVaults() {
@@ -473,10 +609,11 @@ function renderVaults() {
                     <div class="vault-info">
                         <h3>
                             ${vault.vaultName || vault.vaultSymbol}
+                            ${vault.source ? `<span class="source-badge">${vault.source}</span>` : ''}
                         </h3>
                         <div class="vault-address">
                             <span class="chain-badge">${vault.chainName}</span>
-                            Vault: ${formatAddress(vault.vaultAddress)} |
+                            ${vault.vaultAddress ? `Vault: ${formatAddress(vault.vaultAddress)} |` : ''}
                             Wallet: ${formatAddress(vault.userAddress)}
                         </div>
                     </div>
@@ -488,18 +625,24 @@ function renderVaults() {
                     </div>
                 </div>
                 <div class="vault-details">
+                    ${vault.apy !== undefined ? `
                     <div class="detail-item">
                         <span class="detail-label">APY</span>
                         <span class="detail-value">${formatNumber(vault.apy * 100)}%</span>
                     </div>
+                    ` : ''}
+                    ${vault.netApy !== undefined ? `
                     <div class="detail-item">
                         <span class="detail-label">Net APY</span>
                         <span class="detail-value">${formatNumber(vault.netApy * 100)}%</span>
                     </div>
+                    ` : ''}
+                    ${vault.assetPriceUsd !== undefined ? `
                     <div class="detail-item">
                         <span class="detail-label">Asset Price</span>
                         <span class="detail-value">$${formatNumber(vault.assetPriceUsd)}</span>
                     </div>
+                    ` : ''}
                 </div>
             </div>
         `;
@@ -549,6 +692,7 @@ function renderRewards() {
                     <div class="vault-info">
                         <h3>
                             ${reward.tokenSymbol} Rewards
+                            ${reward.source ? `<span class="source-badge">${reward.source}</span>` : ''}
                         </h3>
                         <div class="vault-address">
                             <span class="chain-badge">${reward.chainName}</span>
