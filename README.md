@@ -7,18 +7,19 @@ A multi-chain, multi-protocol vault tracking dashboard with a beautiful space-th
 - 🚀 Track vault positions across multiple protocols
 - 💎 Monitor rewards from various sources
 - 🌐 Multi-chain support (Ethereum, Base, Optimism, Arbitrum, Hyperliquid)
-- 💰 Real-time USD valuations
-- 🔄 Auto-refresh every 5 minutes
+- 💰 Real-time USD valuations with APY tracking
+- 🔄 Auto-refresh every 30 seconds with seamless updates
 - 💾 Persistent wallet storage (localStorage)
+- 📱 Fully responsive mobile design
 - 🎨 Beautiful space-themed UI with animations
 - ⚡ Fast development with Vite + HMR
 
 ## Supported Protocols
 
 ### Vaults
-- **Morpho** - DeFi lending optimizer (Ethereum, Base, Arbitrum)
-- **Hyperliquid HLP** - HLP vault deposits on Hyperliquid L1
-- **Moonwell** - Lending markets on Base and Optimism
+- **Morpho** - DeFi lending optimizer (Ethereum, Base, Arbitrum) with APY tracking
+- **Hyperliquid HLP** - HLP vault deposits on Hyperliquid L1 with past month APY
+- **Moonwell** - Lending markets on Base and Optimism with supply APY and Net APY
 
 ### Rewards
 - **Merkl** - Token distribution rewards (all chains)
@@ -97,22 +98,19 @@ This creates optimized production files in the `dist` folder.
 ### Hyperliquid
 - **Endpoint**: `https://api.hyperliquid.xyz/info`
 - **Type**: POST API
-- **Request Body**:
-  ```json
-  {
-    "type": "userVaultEquities",
-    "user": "0x..."
-  }
-  ```
-- **Data**: HLP vault equity positions
+- **Requests**:
+  - `userVaultEquities`: Get user's vault positions
+  - `vaultDetails`: Get vault APR and metadata
+- **Data**: HLP vault equity positions with past month APY
 
 ### Moonwell
 - **SDK**: `@moonwell-fi/moonwell-sdk` (v0.9.7)
 - **Type**: Official TypeScript SDK
 - **Data**:
-  - Vault positions: Supply/borrow balances, APYs, collateral
+  - Vault positions: Supply balances, base APY, total APR (with rewards)
   - Rewards: WELL token rewards (supply + borrow incentives)
 - **RPC Endpoints**: Uses publicnode.com RPCs to avoid rate limits
+- **APY Calculation**: Fetches full market data to get accurate APY values
 
 ## Adding New Data Sources
 
