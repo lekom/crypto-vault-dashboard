@@ -487,10 +487,30 @@ body {
     gap: 1rem;
 }
 
+.vault-info {
+    min-width: 0;
+    flex: 1;
+}
+
 .vault-info h3 {
     font-size: 1.3rem;
     margin-bottom: 0.5rem;
     color: var(--primary);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.vault-info h3 > span:first-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+    flex-shrink: 1;
+}
+
+.vault-info h3 > .source-badge {
+    flex-shrink: 0;
 }
 
 .vault-address {
@@ -644,6 +664,7 @@ body {
     text-align: center;
     padding: 4rem 2rem 2rem;
     margin-top: 4rem;
+    display: none; /* Hidden by default, shown when wallets are added */
 }
 
 .footer-rocket {
@@ -664,31 +685,133 @@ body {
 
 /* Responsive */
 @media (max-width: 768px) {
+    * {
+        box-sizing: border-box;
+    }
+
+    body {
+        overflow-x: hidden;
+    }
+
     .container {
         padding: 1rem;
+        width: 100%;
     }
 
     .title {
-        font-size: 2rem;
+        font-size: 1.5rem;
     }
 
     .subtitle {
-        font-size: 1rem;
+        font-size: 0.9rem;
     }
 
     .input-group {
         flex-direction: column;
     }
 
+    /* Fix total portfolio value overflow */
     .total-amount {
-        font-size: 2.5rem;
+        font-size: 2rem;
+        line-height: 1.2;
+    }
+
+    .balance-card {
+        padding: 1rem;
+    }
+
+    .card-header h2 {
+        font-size: 1.2rem;
+    }
+
+    /* Fix section titles and totals */
+    .section-title {
+        font-size: 1.3rem;
+    }
+
+    .section-total {
+        font-size: 1.2rem;
+    }
+
+    /* Fix vault/reward items on mobile - use grid for strict control */
+    .vault-item,
+    .reward-item {
+        padding: 1rem;
+        display: grid;
+        grid-template-rows: auto auto;
+        gap: 1rem;
+        width: 100%;
     }
 
     .vault-header {
-        flex-direction: column;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 1rem;
+        width: 100%;
+    }
+
+    .vault-info {
+        display: grid;
+        grid-template-rows: auto auto;
+        gap: 0.5rem;
+        min-width: 0;
+    }
+
+    .vault-info h3 {
+        font-size: 1.1rem;
+        min-width: 0;
+    }
+
+    .vault-address {
+        font-size: 0.75rem;
     }
 
     .vault-balance {
+        width: 100%;
         text-align: left;
+    }
+
+    .balance-amount {
+        font-size: 1.8rem;
+    }
+
+    .balance-asset {
+        font-size: 0.9rem;
+    }
+
+    /* Fix detail items */
+    .vault-details {
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+        width: 100%;
+    }
+
+    .detail-item {
+        display: flex;
+        justify-content: space-between;
+        width: 100%;
+    }
+
+    .detail-label,
+    .detail-value {
+        font-size: 0.85rem;
+    }
+
+    /* Fix wallet list items */
+    .wallet-item {
+        font-size: 0.9rem;
+        padding: 0.75rem;
+    }
+
+    /* Fix badges */
+    .source-badge,
+    .chain-badge {
+        font-size: 0.65rem;
+        padding: 0.2rem 0.5rem;
+    }
+
+    /* Fix last update text */
+    .last-update {
+        font-size: 0.75rem;
     }
 }

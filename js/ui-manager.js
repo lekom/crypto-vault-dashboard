@@ -65,12 +65,11 @@ export class UIManager {
                     <div class="vault-header">
                         <div class="vault-info">
                             <h3>
-                                ${vault.vaultName || vault.vaultSymbol}
+                                <span>${vault.vaultName || vault.vaultSymbol}</span>
                                 ${vault.source ? `<span class="source-badge">${vault.source}</span>` : ''}
                             </h3>
                             <div class="vault-address">
                                 <span class="chain-badge">${vault.chainName}</span>
-                                ${vault.vaultAddress ? `Vault: ${formatAddress(vault.vaultAddress)} |` : ''}
                                 Wallet: ${formatAddress(vault.userAddress)}
                             </div>
                         </div>
@@ -149,7 +148,7 @@ export class UIManager {
                     <div class="vault-header">
                         <div class="vault-info">
                             <h3>
-                                ${reward.tokenSymbol} Rewards
+                                <span>${reward.tokenSymbol} Rewards</span>
                                 ${reward.source ? `<span class="source-badge">${reward.source}</span>` : ''}
                             </h3>
                             <div class="vault-address">

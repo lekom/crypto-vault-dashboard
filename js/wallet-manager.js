@@ -96,11 +96,15 @@ export class WalletManager {
      */
     renderWalletList() {
         const container = document.getElementById('walletList');
+        const footer = document.querySelector('.footer');
 
         if (this.wallets.length === 0) {
             container.innerHTML = '';
+            if (footer) footer.style.display = 'none';
             return;
         }
+
+        if (footer) footer.style.display = 'block';
 
         container.innerHTML = this.wallets.map(address => `
             <div class="wallet-tag">
