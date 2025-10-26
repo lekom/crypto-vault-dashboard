@@ -31,7 +31,13 @@ export class DataManager {
 
             for (const wallet of wallets) {
                 for (const plugin of vaultPlugins) {
-                    vaultPromises.push(plugin.fetchData(wallet));
+                    // Wrap each plugin call to catch individual errors
+                    vaultPromises.push(
+                        plugin.fetchData(wallet).catch(error => {
+                            console.error(`[${plugin.name}] Error fetching vault data:`, error);
+                            return []; // Return empty array on error
+                        })
+                    );
                 }
             }
 
@@ -44,7 +50,13 @@ export class DataManager {
 
             for (const wallet of wallets) {
                 for (const plugin of rewardPlugins) {
-                    rewardPromises.push(plugin.fetchData(wallet));
+                    // Wrap each plugin call to catch individual errors
+                    rewardPromises.push(
+                        plugin.fetchData(wallet).catch(error => {
+                            console.error(`[${plugin.name}] Error fetching reward data:`, error);
+                            return []; // Return empty array on error
+                        })
+                    );
                 }
             }
 

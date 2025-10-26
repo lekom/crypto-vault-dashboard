@@ -11,6 +11,7 @@ export const CONFIG = {
 // Supported chain IDs
 export const CHAIN_IDS = {
     ETHEREUM: 1,
+    OPTIMISM: 10,
     BASE: 8453,
     ARBITRUM: 42161
 };
@@ -24,6 +25,7 @@ export const SUPPORTED_CHAINS = [
 // Chain name mapping
 export const CHAIN_NAMES = {
     [CHAIN_IDS.ETHEREUM]: 'Ethereum',
+    [CHAIN_IDS.OPTIMISM]: 'Optimism',
     [CHAIN_IDS.BASE]: 'Base',
     [CHAIN_IDS.ARBITRUM]: 'Arbitrum'
 };
