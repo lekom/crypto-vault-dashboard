@@ -8,7 +8,7 @@ A multi-chain, multi-protocol vault tracking dashboard with a beautiful space-th
 - 💎 Monitor rewards from various sources
 - 🌐 Multi-chain support (Ethereum, Base, Optimism, Arbitrum, Hyperliquid)
 - 💰 Real-time USD valuations with APY tracking
-- 🔄 Auto-refresh every 30 seconds with seamless updates
+- 🔄 Auto-refresh every 30 seconds
 - 💾 Persistent wallet storage (localStorage)
 - 📱 Fully responsive mobile design
 - 🎨 Beautiful space-themed UI with animations
@@ -66,9 +66,11 @@ This creates optimized production files in the `dist` folder.
 ```
 /
 ├── index.html                 # Main HTML file
-├── styles.css                 # Styling
+├── styles.css                 # Styling with space-themed animations
 ├── vite.config.js            # Vite configuration
 ├── package.json              # Dependencies and scripts
+├── assets/
+│   └── roadster.png          # Tesla Roadster animation asset
 ├── js/
 │   ├── main.js               # Application entry point
 │   ├── config.js             # Configuration (poll interval, chain IDs)
@@ -176,7 +178,7 @@ registerPlugins() {
 - **Plugins**: Independent data source integrations
 - **Main**: Application coordinator
 - **Plugin Timeout**: 5 seconds per plugin to prevent hanging
-- **Poll Interval**: 5 minutes between automatic data refreshes
+- **Poll Interval**: 30 seconds between automatic data refreshes
 
 ### Code Style
 
