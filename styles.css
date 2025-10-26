@@ -366,9 +366,7 @@ body {
     transition: opacity 0.3s ease;
 }
 
-.total-amount.updating {
-    opacity: 0.7;
-}
+/* Removed flash effect - seamless updates */
 
 .last-update {
     font-size: 0.9rem;
@@ -528,22 +526,30 @@ body {
     font-size: 2rem;
     font-weight: 700;
     color: var(--success);
-    transition: opacity 0.3s ease;
+    transition: text-shadow 0.3s ease;
 }
 
-.balance-amount.updating {
-    opacity: 0.7;
+/* Glow effect when balance updates */
+.balance-amount.glow {
+    animation: balance-glow 1s ease-out;
+}
+
+@keyframes balance-glow {
+    0% {
+        text-shadow: 0 0 10px var(--success), 0 0 20px var(--success);
+    }
+    50% {
+        text-shadow: 0 0 20px var(--success), 0 0 30px var(--success), 0 0 40px var(--success);
+    }
+    100% {
+        text-shadow: none;
+    }
 }
 
 .balance-asset {
     font-size: 0.9rem;
     color: var(--text-secondary);
     margin-top: 0.25rem;
-    transition: opacity 0.3s ease;
-}
-
-.balance-asset.updating {
-    opacity: 0.7;
 }
 
 .vault-details {
