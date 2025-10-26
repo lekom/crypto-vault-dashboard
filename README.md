@@ -14,6 +14,8 @@ A multi-chain, multi-protocol vault tracking dashboard with a beautiful space-th
 - 🎨 Beautiful space-themed UI with animations
 - ⚡ Fast development with Vite + HMR
 
+<img width="1083" height="1290" alt="image" src="https://github.com/user-attachments/assets/b3c45b41-9364-4401-9763-29f4cfdbb798" />
+
 ## Supported Protocols
 
 ### Vaults
