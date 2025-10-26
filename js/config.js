@@ -4,7 +4,7 @@
 
 // Application Settings
 export const CONFIG = {
-    POLL_INTERVAL: 10000, // 10 seconds
+    POLL_INTERVAL: 30000, // 30 seconds
     STORAGE_KEY: 'crypto_vault_dashboard_wallets'
 };
 
