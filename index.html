@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Morpho Vault Dashboard - Space Explorer</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="space-background">
+        <div class="stars"></div>
+        <div class="asteroids"></div>
+        <div class="planets"></div>
+    </div>
+
+    <div class="container">
+        <header class="header">
+            <h1 class="title">
+                <span class="glow">MORPHO VAULT DASHBOARD</span>
+            </h1>
+            <p class="subtitle">Multi-Wallet Space Station</p>
+        </header>
+
+        <div class="wallet-input-section">
+            <div class="input-group">
+                <input
+                    type="text"
+                    id="walletInput"
+                    placeholder="Enter EVM wallet address (0x...)"
+                    class="wallet-input"
+                />
+                <button id="addWallet" class="btn btn-primary">
+                    <span>Add Wallet</span>
+                </button>
+            </div>
+            <div id="walletList" class="wallet-list"></div>
+        </div>
+
+        <div class="total-balance-section">
+            <div class="balance-card total-card">
+                <div class="card-header">
+                    <h2>Total Portfolio Value</h2>
+                </div>
+                <div class="card-body">
+                    <div id="totalBalance" class="total-amount">$0.00</div>
+                    <div id="lastUpdate" class="last-update">Last updated: Never</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="vaults-section">
+            <h2 class="section-title">Vault Positions</h2>
+            <div id="vaultsList" class="vaults-list">
+                <div class="empty-state">
+                    <div class="empty-icon">🚀</div>
+                    <p>Add wallet addresses to begin tracking your Morpho vaults</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="loading-overlay" id="loadingOverlay">
+            <div class="spinner"></div>
+            <p>Scanning the cosmos...</p>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
