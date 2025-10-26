@@ -39,9 +39,35 @@ export class HyperliquidVaultPlugin extends VaultPlugin {
                 return [];
             }
 
-            // Transform to our standard format
-            const vaults = data.map(vault => {
+            // Fetch vault details for each vault to get APY
+            const vaultPromises = data.map(async (vault) => {
                 const equityUsd = parseFloat(vault.equity);
+
+                // Fetch vault details to get APY
+                let vaultDetails = null;
+                try {
+                    const detailsResponse = await fetch(this.apiUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            type: 'vaultDetails',
+                            vaultAddress: vault.vaultAddress,
+                            user: formattedAddress
+                        })
+                    });
+
+                    if (detailsResponse.ok) {
+                        vaultDetails = await detailsResponse.json();
+                    }
+                } catch (error) {
+                    console.warn(`Error fetching vault details for ${vault.vaultAddress}:`, error);
+                }
+
+                // Extract APR from vault details (it's in decimal form like 0.155 for 15.5%)
+                // Don't divide by 100 - it's already in decimal format
+                const apr = vaultDetails?.apr ? parseFloat(vaultDetails.apr) : undefined;
 
                 return {
                     source: this.name,
@@ -49,19 +75,19 @@ export class HyperliquidVaultPlugin extends VaultPlugin {
                     chainName: 'Hyperliquid',
                     userAddress: address,
                     vaultAddress: vault.vaultAddress,
-                    vaultName: 'HLP Vault',
+                    vaultName: vaultDetails?.name || 'HLP Vault',
                     vaultSymbol: 'HLP',
                     assetSymbol: 'USDC',
                     assetDecimals: 6,
                     assetPriceUsd: 1, // USDC is $1
-                    balanceAssets: equityUsd, // Equity is already in USDC terms
+                    balanceAssets: equityUsd, // Equity in USDC terms
                     balanceUsd: equityUsd,
-                    // APY data not available in this endpoint
                     apy: undefined,
-                    netApy: undefined
+                    netApy: apr
                 };
-            }).filter(vault => vault.balanceUsd > 0);
+            });
 
+            const vaults = (await Promise.all(vaultPromises)).filter(vault => vault.balanceUsd > 0);
             return vaults;
         } catch (error) {
             console.error(`Error fetching Hyperliquid vault for ${address}:`, error);

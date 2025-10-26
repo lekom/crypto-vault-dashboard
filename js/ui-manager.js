@@ -95,7 +95,7 @@ export class UIManager {
                         ` : ''}
                         ${vault.netApy !== undefined ? `
                         <div class="detail-item">
-                            <span class="detail-label">Net APY</span>
+                            <span class="detail-label">${vault.source === 'Hyperliquid HLP' ? 'Past Month APY' : 'Net APY'}</span>
                             <span class="detail-value" data-field="netApy">${formatNumber(vault.netApy * 100)}%</span>
                         </div>
                         ` : ''}
