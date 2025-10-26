@@ -58,8 +58,6 @@ This creates optimized production files in the `dist` folder.
 
 ## Project Structure
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed architecture documentation.
-
 ```
 /
 ├── index.html              # Main HTML file
@@ -111,8 +109,6 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed architecture documentation.
 - **Data**: Lending market positions, supply/borrow balances, APYs
 
 ## Adding New Data Sources
-
-See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed plugin development guide.
 
 Quick example:
 
