@@ -12,34 +12,28 @@ export class MoonwellVaultPlugin extends VaultPlugin {
     constructor() {
         super('Moonwell', 'vault');
 
-        // Initialize Moonwell SDK client with default RPC endpoints
+        // Initialize Moonwell SDK client with public RPC endpoints
+        // Using alternative public RPCs to avoid rate limits
         this.client = createMoonwellClient({
             networks: {
-                base: {},
-                optimism: {},
+                base: {
+                    rpcUrls: ['https://base-rpc.publicnode.com']
+                },
+                optimism: {
+                    rpcUrls: ['https://optimism-rpc.publicnode.com']
+                },
             },
         });
     }
 
     async fetchData(address) {
         try {
-            console.log(`[Moonwell] Fetching data for ${address}`);
-            console.log(`[Moonwell] Client:`, this.client);
             const positions = [];
 
-            // First, let's test if SDK is working by getting markets
-            console.log(`[Moonwell] Testing SDK - fetching markets...`);
-            const markets = await this.client.getMarkets();
-            console.log(`[Moonwell] Markets available:`, markets?.length, markets);
-
             // Fetch user positions from Moonwell SDK
-            console.log(`[Moonwell] Calling getUserPositions with userAddress:`, address);
             const userPositions = await this.client.getUserPositions({
                 userAddress: address,
             });
-
-            console.log(`[Moonwell] SDK returned ${userPositions?.length || 0} positions:`, userPositions);
-            console.log(`[Moonwell] Type of userPositions:`, typeof userPositions, Array.isArray(userPositions));
 
             // Check if userPositions is valid
             if (!userPositions || !Array.isArray(userPositions)) {
@@ -49,15 +43,9 @@ export class MoonwellVaultPlugin extends VaultPlugin {
 
             // Transform to our standard format
             for (const position of userPositions) {
-                console.log(`[Moonwell] Processing position:`, position);
-                console.log(`[Moonwell] Position keys:`, Object.keys(position));
-                console.log(`[Moonwell] Supplied:`, position.supplied);
-
                 // SDK returns Amount objects, need to access the value
                 const suppliedAmount = position.supplied?.value || position.supplied;
                 const suppliedUsd = position.supplied?.valueUsd || position.suppliedUsd;
-
-                console.log(`[Moonwell] suppliedAmount:`, suppliedAmount, 'suppliedUsd:', suppliedUsd);
 
                 if (suppliedAmount && parseFloat(suppliedAmount) > 0) {
                     const supplyBalanceUsd = suppliedUsd ? parseFloat(suppliedUsd) : 0;
@@ -79,14 +67,9 @@ export class MoonwellVaultPlugin extends VaultPlugin {
                         apy: parseFloat(position.market?.supplyApy || position.market?.apy || 0),
                         netApy: parseFloat(position.market?.supplyApy || position.market?.apy || 0)
                     };
-                    console.log(`[Moonwell] Transformed position:`, transformed);
                     positions.push(transformed);
-                } else {
-                    console.log(`[Moonwell] Skipping position with zero or no supply balance`);
                 }
             }
-
-            console.log(`[Moonwell] Total positions found: ${positions.length}`, positions);
             return positions;
         } catch (error) {
             console.error(`[Moonwell] Error fetching positions for ${address}:`, error);

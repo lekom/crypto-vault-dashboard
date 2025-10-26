@@ -19,6 +19,22 @@ export class DataManager {
      * @param {Function} onUpdate - Callback when data is updated
      * @param {boolean} showLoading - Whether to show loading overlay
      */
+    /**
+     * Wrap a promise with a timeout
+     * @param {Promise} promise - Promise to wrap
+     * @param {number} timeoutMs - Timeout in milliseconds
+     * @param {string} name - Name for error message
+     * @returns {Promise} Promise that rejects on timeout
+     */
+    promiseWithTimeout(promise, timeoutMs, name) {
+        return Promise.race([
+            promise,
+            new Promise((_, reject) =>
+                setTimeout(() => reject(new Error(`Timeout after ${timeoutMs}ms`)), timeoutMs)
+            )
+        ]);
+    }
+
     async fetchAllData(wallets, onUpdate, showLoading = true) {
         if (showLoading) {
             this.showLoading(true);
@@ -31,10 +47,14 @@ export class DataManager {
 
             for (const wallet of wallets) {
                 for (const plugin of vaultPlugins) {
-                    // Wrap each plugin call to catch individual errors
+                    // Wrap each plugin call with timeout and error handling
                     vaultPromises.push(
-                        plugin.fetchData(wallet).catch(error => {
-                            console.error(`[${plugin.name}] Error fetching vault data:`, error);
+                        this.promiseWithTimeout(
+                            plugin.fetchData(wallet),
+                            5000, // 5 second timeout
+                            `${plugin.name} vault plugin`
+                        ).catch(error => {
+                            console.error(`[DataManager] ${plugin.name} failed for ${wallet}:`, error.message);
                             return []; // Return empty array on error
                         })
                     );
@@ -50,10 +70,14 @@ export class DataManager {
 
             for (const wallet of wallets) {
                 for (const plugin of rewardPlugins) {
-                    // Wrap each plugin call to catch individual errors
+                    // Wrap each plugin call with timeout and error handling
                     rewardPromises.push(
-                        plugin.fetchData(wallet).catch(error => {
-                            console.error(`[${plugin.name}] Error fetching reward data:`, error);
+                        this.promiseWithTimeout(
+                            plugin.fetchData(wallet),
+                            5000, // 5 second timeout
+                            `${plugin.name} reward plugin`
+                        ).catch(error => {
+                            console.error(`[DataManager] ${plugin.name} failed for ${wallet}:`, error.message);
                             return []; // Return empty array on error
                         })
                     );

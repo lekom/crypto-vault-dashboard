@@ -443,6 +443,7 @@ body {
     color: var(--success);
     text-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
     transition: all 0.3s ease;
+    padding-right: 1rem;
 }
 
 .vaults-list {

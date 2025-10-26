@@ -160,19 +160,21 @@ export class UIManager {
                         <div class="vault-balance">
                             <div class="balance-amount">$${formatNumber(unclaimedUsdValue)}</div>
                             <div class="balance-asset">
-                                ${formatNumber(unclaimed)} ${reward.tokenSymbol} Unclaimed
+                                ${formatNumber(unclaimed)} ${reward.tokenSymbol} ${reward.source === 'Moonwell' ? 'Claimable' : 'Unclaimed'}
                             </div>
                         </div>
                     </div>
                     <div class="vault-details">
                         <div class="detail-item">
-                            <span class="detail-label">Total Earned</span>
+                            <span class="detail-label">${reward.source === 'Moonwell' ? 'Claimable' : 'Total Earned'}</span>
                             <span class="detail-value">${formatNumber(adjustedAmount)} ${reward.tokenSymbol}</span>
                         </div>
+                        ${adjustedClaimed > 0 ? `
                         <div class="detail-item">
                             <span class="detail-label">Claimed</span>
                             <span class="detail-value">${formatNumber(adjustedClaimed)} ${reward.tokenSymbol}</span>
                         </div>
+                        ` : ''}
                         <div class="detail-item">
                             <span class="detail-label">Token Price</span>
                             <span class="detail-value">$${formatNumber(reward.tokenPrice)}</span>

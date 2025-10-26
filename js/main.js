@@ -8,6 +8,7 @@ import { MorphoVaultPlugin } from './plugins/morpho.js';
 import { MerklRewardsPlugin } from './plugins/merkl.js';
 import { HyperliquidVaultPlugin } from './plugins/hyperliquid.js';
 import { MoonwellVaultPlugin } from './plugins/moonwell.js';
+import { MoonwellRewardsPlugin } from './plugins/moonwell-rewards.js';
 import { DataManager } from './data-manager.js';
 import { UIManager } from './ui-manager.js';
 import { WalletManager } from './wallet-manager.js';
@@ -50,6 +51,7 @@ class CryptoVaultDashboard {
         this.pluginRegistry.register(new MerklRewardsPlugin());
         this.pluginRegistry.register(new HyperliquidVaultPlugin());
         this.pluginRegistry.register(new MoonwellVaultPlugin());
+        this.pluginRegistry.register(new MoonwellRewardsPlugin());
     }
 
     /**
