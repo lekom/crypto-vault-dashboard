@@ -50,8 +50,8 @@ export function isValidAddress(address) {
  * @returns {number} Display value
  */
 export function getDisplayValue(vault) {
-    // If asset is USDC or other stablecoin, use the asset balance
-    const stablecoins = ['USDC', 'USDT', 'DAI', 'USDC.e'];
+    // If asset is USDC or mUSDC, use the asset balance
+    const stablecoins = ['USDC', 'mUSDC'];
     if (stablecoins.includes(vault.assetSymbol)) {
         return vault.balanceAssets;
     }
