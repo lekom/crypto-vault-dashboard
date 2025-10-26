@@ -6,11 +6,12 @@ A multi-chain, multi-protocol vault tracking dashboard with a beautiful space-th
 
 - 🚀 Track vault positions across multiple protocols
 - 💎 Monitor rewards from various sources
-- 🌐 Multi-chain support (Ethereum, Base, Arbitrum, Hyperliquid)
+- 🌐 Multi-chain support (Ethereum, Base, Optimism, Arbitrum, Hyperliquid)
 - 💰 Real-time USD valuations
-- 🔄 Auto-refresh every 30 seconds
+- 🔄 Auto-refresh every 5 minutes
 - 💾 Persistent wallet storage (localStorage)
 - 🎨 Beautiful space-themed UI with animations
+- ⚡ Fast development with Vite + HMR
 
 ## Supported Protocols
 
@@ -21,6 +22,7 @@ A multi-chain, multi-protocol vault tracking dashboard with a beautiful space-th
 
 ### Rewards
 - **Merkl** - Token distribution rewards (all chains)
+- **Moonwell** - WELL token rewards on Base and Optimism
 
 ## Quick Start
 
@@ -60,22 +62,24 @@ This creates optimized production files in the `dist` folder.
 
 ```
 /
-├── index.html              # Main HTML file
-├── styles.css              # Styling
-├── start-server.sh         # Development server script
+├── index.html                 # Main HTML file
+├── styles.css                 # Styling
+├── vite.config.js            # Vite configuration
+├── package.json              # Dependencies and scripts
 ├── js/
-│   ├── main.js            # Application entry point
-│   ├── config.js          # Configuration
-│   ├── utils.js           # Utilities
-│   ├── plugin-system.js   # Plugin architecture
-│   ├── data-manager.js    # Data fetching
-│   ├── ui-manager.js      # UI rendering
-│   ├── wallet-manager.js  # Wallet management
+│   ├── main.js               # Application entry point
+│   ├── config.js             # Configuration (poll interval, chain IDs)
+│   ├── utils.js              # Utility functions
+│   ├── plugin-system.js      # Plugin architecture base classes
+│   ├── data-manager.js       # Data fetching orchestration
+│   ├── ui-manager.js         # UI rendering
+│   ├── wallet-manager.js     # Wallet management
 │   └── plugins/
-│       ├── morpho.js      # Morpho integration
-│       ├── merkl.js       # Merkl integration
-│       ├── hyperliquid.js # Hyperliquid integration
-│       └── moonwell.js    # Moonwell (placeholder)
+│       ├── morpho.js         # Morpho vault integration
+│       ├── merkl.js          # Merkl rewards integration
+│       ├── hyperliquid.js    # Hyperliquid HLP integration
+│       ├── moonwell.js       # Moonwell vault integration
+│       └── moonwell-rewards.js # Moonwell rewards integration
 ```
 
 ## API Integrations
@@ -103,10 +107,12 @@ This creates optimized production files in the `dist` folder.
 - **Data**: HLP vault equity positions
 
 ### Moonwell
-- **Endpoint (Base)**: `https://api.studio.thegraph.com/query/47991/moonwell-base/version/latest`
-- **Endpoint (Optimism)**: `https://api.studio.thegraph.com/query/47991/moonwell-optimism/version/latest`
-- **Type**: GraphQL (Subgraph)
-- **Data**: Lending market positions, supply/borrow balances, APYs
+- **SDK**: `@moonwell-fi/moonwell-sdk` (v0.9.7)
+- **Type**: Official TypeScript SDK
+- **Data**:
+  - Vault positions: Supply/borrow balances, APYs, collateral
+  - Rewards: WELL token rewards (supply + borrow incentives)
+- **RPC Endpoints**: Uses publicnode.com RPCs to avoid rate limits
 
 ## Adding New Data Sources
 
@@ -154,12 +160,23 @@ registerPlugins() {
 
 ## Development
 
+### Technology Stack
+
+- **Build Tool**: Vite 7.x with Hot Module Replacement (HMR)
+- **Package Manager**: npm
+- **Module System**: ES6 modules (import/export)
+- **Dependencies**:
+  - `@moonwell-fi/moonwell-sdk` - Moonwell protocol integration
+  - `@metamask/delegation-toolkit` - Required peer dependency
+
 ### File Organization
 
 - **Config & Utils**: Pure functions, no side effects
-- **Managers**: Orchestrate specific responsibilities
+- **Managers**: Orchestrate specific responsibilities (data, UI, wallets)
 - **Plugins**: Independent data source integrations
 - **Main**: Application coordinator
+- **Plugin Timeout**: 5 seconds per plugin to prevent hanging
+- **Poll Interval**: 5 minutes between automatic data refreshes
 
 ### Code Style
 
@@ -173,15 +190,21 @@ registerPlugins() {
 
 Check syntax of all JavaScript files:
 ```bash
+npm test
+```
+
+Or manually:
+```bash
 find js -name "*.js" -exec node --check {} \;
 ```
 
-## CORS Issues
+### Development Server
 
-If you see CORS errors, make sure you're:
-1. Running a local server (not opening `file://` directly)
-2. Using `http://localhost:8765` (not `file:///`)
-3. Modules are served with correct MIME types
+Vite automatically handles:
+- Module bundling and optimization
+- Hot module replacement (HMR) for instant updates
+- Dependency pre-bundling for faster page loads
+- ES module serving with correct MIME types
 
 ## Browser Support
 
