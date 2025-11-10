@@ -11,6 +11,9 @@ export class DataManager {
         this.vaultsData = [];
         this.rewardsData = [];
         this.pollTimer = null;
+        // Cache to store previous successful data
+        this.vaultsCache = new Map(); // key: source-chainId-vaultAddress-userAddress
+        this.rewardsCache = new Map(); // key: source-chainId-tokenAddress-userAddress
     }
 
     /**
@@ -35,6 +38,84 @@ export class DataManager {
         ]);
     }
 
+    /**
+     * Generate cache key for vault data
+     */
+    getVaultCacheKey(vault) {
+        return `${vault.source}-${vault.chainId}-${vault.vaultAddress}-${vault.userAddress}`;
+    }
+
+    /**
+     * Generate cache key for reward data
+     */
+    getRewardCacheKey(reward) {
+        return `${reward.source}-${reward.chainId}-${reward.tokenAddress || reward.tokenSymbol}-${reward.userAddress}`;
+    }
+
+    /**
+     * Clean cache to only keep items for current wallets
+     */
+    cleanCache(cache, wallets) {
+        const walletsSet = new Set(wallets.map(w => w.toLowerCase()));
+        const keysToDelete = [];
+
+        cache.forEach((item, key) => {
+            const itemWallet = item.userAddress?.toLowerCase();
+            if (!walletsSet.has(itemWallet)) {
+                keysToDelete.push(key);
+            }
+        });
+
+        keysToDelete.forEach(key => cache.delete(key));
+    }
+
+    /**
+     * Merge new data with cached data, preferring new data when available
+     * Only keeps cached data for failed plugin+wallet combinations
+     */
+    mergeWithCache(newData, cache, getCacheKey, successfulFetches, failedFetches) {
+        const merged = new Map();
+
+        // Create set of successful plugin+wallet combinations
+        const successfulKeys = new Set(
+            successfulFetches.map(f => `${f.plugin}-${f.wallet.toLowerCase()}`)
+        );
+
+        // Add all new data to merged map and update cache
+        newData.forEach(item => {
+            const key = getCacheKey(item);
+            merged.set(key, item);
+            cache.set(key, item);
+        });
+
+        // Remove cached items for successful fetches (position was legitimately closed)
+        const keysToDelete = [];
+        cache.forEach((item, key) => {
+            const itemKey = `${item.source}-${item.userAddress?.toLowerCase()}`;
+            if (successfulKeys.has(itemKey) && !merged.has(key)) {
+                // Successful fetch didn't include this item = position was closed
+                keysToDelete.push(key);
+            }
+        });
+        keysToDelete.forEach(key => cache.delete(key));
+
+        // Add cached items ONLY for failed fetches
+        const failedKeys = new Set(
+            failedFetches.map(f => `${f.plugin}-${f.wallet.toLowerCase()}`)
+        );
+        cache.forEach((item, key) => {
+            if (!merged.has(key)) {
+                const itemKey = `${item.source}-${item.userAddress?.toLowerCase()}`;
+                if (failedKeys.has(itemKey)) {
+                    // Keep cached data for failed fetches
+                    merged.set(key, item);
+                }
+            }
+        });
+
+        return Array.from(merged.values());
+    }
+
     async fetchAllData(wallets, onUpdate, showLoading = true) {
         if (showLoading) {
             this.showLoading(true);
@@ -53,16 +134,35 @@ export class DataManager {
                             plugin.fetchData(wallet),
                             5000, // 5 second timeout
                             `${plugin.name} vault plugin`
-                        ).catch(error => {
+                        )
+                        .then(data => ({ success: true, data, plugin: plugin.name, wallet }))
+                        .catch(error => {
                             console.error(`[DataManager] ${plugin.name} failed for ${wallet}:`, error.message);
-                            return []; // Return empty array on error
+                            return { success: false, data: [], plugin: plugin.name, wallet };
                         })
                     );
                 }
             }
 
             const vaultResults = await Promise.all(vaultPromises);
-            this.vaultsData = vaultResults.flat();
+
+            // Separate successful results from failures
+            const successfulVaults = vaultResults.filter(r => r.success);
+            const failedVaults = vaultResults.filter(r => !r.success);
+
+            const newVaultsData = successfulVaults.flatMap(r => r.data);
+
+            // Clean cache for removed wallets
+            this.cleanCache(this.vaultsCache, wallets);
+
+            // Merge new data with cached data (only keep cached data for failed fetches)
+            this.vaultsData = this.mergeWithCache(
+                newVaultsData,
+                this.vaultsCache,
+                this.getVaultCacheKey.bind(this),
+                successfulVaults,
+                failedVaults
+            );
 
             // Fetch rewards data from all reward plugins
             const rewardPlugins = this.pluginRegistry.getRewardPlugins();
@@ -76,16 +176,35 @@ export class DataManager {
                             plugin.fetchData(wallet),
                             5000, // 5 second timeout
                             `${plugin.name} reward plugin`
-                        ).catch(error => {
+                        )
+                        .then(data => ({ success: true, data, plugin: plugin.name, wallet }))
+                        .catch(error => {
                             console.error(`[DataManager] ${plugin.name} failed for ${wallet}:`, error.message);
-                            return []; // Return empty array on error
+                            return { success: false, data: [], plugin: plugin.name, wallet };
                         })
                     );
                 }
             }
 
             const rewardResults = await Promise.all(rewardPromises);
-            this.rewardsData = rewardResults.flat();
+
+            // Separate successful results from failures
+            const successfulRewards = rewardResults.filter(r => r.success);
+            const failedRewards = rewardResults.filter(r => !r.success);
+
+            const newRewardsData = successfulRewards.flatMap(r => r.data);
+
+            // Clean cache for removed wallets
+            this.cleanCache(this.rewardsCache, wallets);
+
+            // Merge new data with cached data (only keep cached data for failed fetches)
+            this.rewardsData = this.mergeWithCache(
+                newRewardsData,
+                this.rewardsCache,
+                this.getRewardCacheKey.bind(this),
+                successfulRewards,
+                failedRewards
+            );
 
             // Notify update
             if (onUpdate) {
