@@ -550,6 +550,17 @@ body {
     gap: 1rem;
 }
 
+.reward-item-link {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+    transition: transform 0.2s ease;
+}
+
+.reward-item-link:hover .reward-item {
+    cursor: pointer;
+}
+
 .reward-item {
     background: var(--card-bg);
     border: 1px solid rgba(255, 215, 0, 0.3);
@@ -591,6 +602,17 @@ body {
 .vaults-list {
     display: grid;
     gap: 1rem;
+}
+
+.vault-item-link {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+    transition: transform 0.2s ease;
+}
+
+.vault-item-link:hover .vault-item {
+    cursor: pointer;
 }
 
 .vault-item {

@@ -42,6 +42,24 @@ export class UIManager {
     }
 
     /**
+     * Get vault URL based on source and vault data
+     */
+    getVaultUrl(vault) {
+        if (vault.source === 'Morpho') {
+            // Format: https://app.morpho.org/base/vault/0x...
+            return `https://app.morpho.org/${vault.chainName.toLowerCase()}/vault/${vault.vaultAddress}`;
+        } else if (vault.source === 'Moonwell') {
+            // Format: https://moonwell.fi/markets/supply/base/usdc
+            const chainPath = vault.chainName.toLowerCase();
+            const assetSymbol = vault.assetSymbol.toLowerCase();
+            return `https://moonwell.fi/markets/supply/${chainPath}/${assetSymbol}`;
+        } else if (vault.source === 'Hyperliquid HLP') {
+            return `https://app.hyperliquid.xyz/vaults/${vault.vaultAddress}`;
+        }
+        return '#';
+    }
+
+    /**
      * Render vault positions
      */
     renderVaults() {
@@ -65,42 +83,45 @@ export class UIManager {
         container.innerHTML = sortedVaults.map((vault, index) => {
             const displayValue = getDisplayValue(vault);
             const vaultId = `vault-${index}`;
+            const vaultUrl = this.getVaultUrl(vault);
 
             return `
-                <div class="vault-item" data-vault-id="${vaultId}">
-                    <div class="vault-header">
-                        <div class="vault-info">
-                            <h3>
-                                <span>${vault.vaultName || vault.vaultSymbol}</span>
-                                ${vault.source ? `<span class="source-badge">${vault.source}</span>` : ''}
-                            </h3>
-                            <div class="vault-address">
-                                <span class="chain-badge">${vault.chainName}</span>
-                                Wallet: ${formatAddress(vault.userAddress)}
+                <a href="${vaultUrl}" target="_blank" rel="noopener noreferrer" class="vault-item-link">
+                    <div class="vault-item" data-vault-id="${vaultId}">
+                        <div class="vault-header">
+                            <div class="vault-info">
+                                <h3>
+                                    <span>${vault.vaultName || vault.vaultSymbol}</span>
+                                    ${vault.source ? `<span class="source-badge">${vault.source}</span>` : ''}
+                                </h3>
+                                <div class="vault-address">
+                                    <span class="chain-badge">${vault.chainName}</span>
+                                    Wallet: ${formatAddress(vault.userAddress)}
+                                </div>
+                            </div>
+                            <div class="vault-balance">
+                                <div class="balance-amount" data-field="balance">$${formatNumber(displayValue)}</div>
+                                <div class="balance-asset" data-field="assets">
+                                    ${formatNumber(vault.balanceAssets)} ${vault.assetSymbol}
+                                </div>
                             </div>
                         </div>
-                        <div class="vault-balance">
-                            <div class="balance-amount" data-field="balance">$${formatNumber(displayValue)}</div>
-                            <div class="balance-asset" data-field="assets">
-                                ${formatNumber(vault.balanceAssets)} ${vault.assetSymbol}
+                        <div class="vault-details">
+                            ${vault.apy !== undefined ? `
+                            <div class="detail-item">
+                                <span class="detail-label">APY</span>
+                                <span class="detail-value" data-field="apy">${formatNumber(vault.apy * 100)}%</span>
                             </div>
+                            ` : ''}
+                            ${vault.netApy !== undefined ? `
+                            <div class="detail-item">
+                                <span class="detail-label">${vault.source === 'Hyperliquid HLP' ? 'Past Month APY' : 'Net APY'}</span>
+                                <span class="detail-value" data-field="netApy">${formatNumber(vault.netApy * 100)}%</span>
+                            </div>
+                            ` : ''}
                         </div>
                     </div>
-                    <div class="vault-details">
-                        ${vault.apy !== undefined ? `
-                        <div class="detail-item">
-                            <span class="detail-label">APY</span>
-                            <span class="detail-value" data-field="apy">${formatNumber(vault.apy * 100)}%</span>
-                        </div>
-                        ` : ''}
-                        ${vault.netApy !== undefined ? `
-                        <div class="detail-item">
-                            <span class="detail-label">${vault.source === 'Hyperliquid HLP' ? 'Past Month APY' : 'Net APY'}</span>
-                            <span class="detail-value" data-field="netApy">${formatNumber(vault.netApy * 100)}%</span>
-                        </div>
-                        ` : ''}
-                    </div>
-                </div>
+                </a>
             `;
         }).join('');
     }
@@ -148,6 +169,20 @@ export class UIManager {
     }
 
     /**
+     * Get reward URL based on source and reward data
+     */
+    getRewardUrl(reward) {
+        if (reward.source === 'Merkl') {
+            // Format: https://app.merkl.xyz/users/0x...
+            return `https://app.merkl.xyz/users/${reward.userAddress}`;
+        } else if (reward.source === 'Moonwell') {
+            // Format: https://moonwell.fi/portfolio
+            return `https://moonwell.fi/portfolio`;
+        }
+        return '#';
+    }
+
+    /**
      * Render rewards
      */
     renderRewards() {
@@ -185,48 +220,51 @@ export class UIManager {
             const unclaimed = adjustedAmount - adjustedClaimed;
             const unclaimedUsdValue = unclaimed * reward.tokenPrice;
             const rewardId = `reward-${index}`;
+            const rewardUrl = this.getRewardUrl(reward);
 
             return `
-                <div class="reward-item" data-reward-id="${rewardId}">
-                    <div class="vault-header">
-                        <div class="vault-info">
-                            <h3>
-                                <span>${reward.tokenSymbol} Rewards</span>
-                                ${reward.source ? `<span class="source-badge">${reward.source}</span>` : ''}
-                            </h3>
-                            <div class="vault-address">
-                                <span class="chain-badge">${reward.chainName}</span>
-                                Wallet: ${formatAddress(reward.userAddress)}
+                <a href="${rewardUrl}" target="_blank" rel="noopener noreferrer" class="reward-item-link">
+                    <div class="reward-item" data-reward-id="${rewardId}">
+                        <div class="vault-header">
+                            <div class="vault-info">
+                                <h3>
+                                    <span>${reward.tokenSymbol} Rewards</span>
+                                    ${reward.source ? `<span class="source-badge">${reward.source}</span>` : ''}
+                                </h3>
+                                <div class="vault-address">
+                                    <span class="chain-badge">${reward.chainName}</span>
+                                    Wallet: ${formatAddress(reward.userAddress)}
+                                </div>
+                            </div>
+                            <div class="vault-balance">
+                                <div class="balance-amount" data-field="balance">$${formatNumber(unclaimedUsdValue)}</div>
+                                <div class="balance-asset" data-field="unclaimed">
+                                    ${formatNumber(unclaimed)} ${reward.tokenSymbol} ${reward.source === 'Moonwell' ? 'Claimable' : 'Unclaimed'}
+                                </div>
                             </div>
                         </div>
-                        <div class="vault-balance">
-                            <div class="balance-amount" data-field="balance">$${formatNumber(unclaimedUsdValue)}</div>
-                            <div class="balance-asset" data-field="unclaimed">
-                                ${formatNumber(unclaimed)} ${reward.tokenSymbol} ${reward.source === 'Moonwell' ? 'Claimable' : 'Unclaimed'}
+                        <div class="vault-details">
+                            <div class="detail-item">
+                                <span class="detail-label">${reward.source === 'Moonwell' ? 'Claimable' : 'Total Earned'}</span>
+                                <span class="detail-value" data-field="totalEarned">${formatNumber(adjustedAmount)} ${reward.tokenSymbol}</span>
+                            </div>
+                            ${adjustedClaimed > 0 ? `
+                            <div class="detail-item">
+                                <span class="detail-label">Claimed</span>
+                                <span class="detail-value" data-field="claimed">${formatNumber(adjustedClaimed)} ${reward.tokenSymbol}</span>
+                            </div>
+                            ` : ''}
+                            <div class="detail-item">
+                                <span class="detail-label">Token Price</span>
+                                <span class="detail-value" data-field="price">$${formatNumber(reward.tokenPrice)}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Chain</span>
+                                <span class="detail-value" data-field="distributionChain">${getChainName(reward.distributionChainId)}</span>
                             </div>
                         </div>
                     </div>
-                    <div class="vault-details">
-                        <div class="detail-item">
-                            <span class="detail-label">${reward.source === 'Moonwell' ? 'Claimable' : 'Total Earned'}</span>
-                            <span class="detail-value" data-field="totalEarned">${formatNumber(adjustedAmount)} ${reward.tokenSymbol}</span>
-                        </div>
-                        ${adjustedClaimed > 0 ? `
-                        <div class="detail-item">
-                            <span class="detail-label">Claimed</span>
-                            <span class="detail-value" data-field="claimed">${formatNumber(adjustedClaimed)} ${reward.tokenSymbol}</span>
-                        </div>
-                        ` : ''}
-                        <div class="detail-item">
-                            <span class="detail-label">Token Price</span>
-                            <span class="detail-value" data-field="price">$${formatNumber(reward.tokenPrice)}</span>
-                        </div>
-                        <div class="detail-item">
-                            <span class="detail-label">Chain</span>
-                            <span class="detail-value" data-field="distributionChain">${getChainName(reward.distributionChainId)}</span>
-                        </div>
-                    </div>
-                </div>
+                </a>
             `;
         }).join('');
     }
